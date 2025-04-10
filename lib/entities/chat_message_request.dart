@@ -1,50 +1,34 @@
-class DifyFile {
-  final String type;
-  final String transferMethod;
-  final String? url;
-  final String? uploadFileId;
-
-  DifyFile({
-    required this.type,
-    required this.transferMethod,
-    this.url,
-    this.uploadFileId,
-  });
-
-  Map<String, dynamic> toJson() => {
-    'type': type,
-    'transfer_method': transferMethod,
-    if (url != null) 'url': url,
-    if (uploadFileId != null) 'upload_file_id': uploadFileId,
-  };
-}
+import 'package:dify_api/entities/file_input.dart';
 
 class ChatMessageRequest {
+  final Map<String, dynamic>? input;
   final String query;
-  final Map<String, dynamic> inputs;
   final String responseMode;
   final String user;
   final String? conversationId;
-  final List<DifyFile> files;
+  final List<FileInput>? files;
   final bool autoGenerateName;
 
   ChatMessageRequest({
+    this.input = const {},
     required this.query,
-    this.inputs = const {},
-    this.responseMode = 'blocking',
+    this.responseMode = 'streaming',
     required this.user,
     this.conversationId,
-    this.files = const [],
+    this.files,
     this.autoGenerateName = true,
   });
 
-  Map<String, dynamic> toJson() => {
-    'query': query,
-    'inputs': inputs,
-    'response_mode': responseMode,
-    'user': user,
-    if (conversationId != null) 'conversation_id': conversationId,
-    if (files.isNotEmpty) 'files': files.map((f) => f.toJson()).toList(),
-    'auto_generate_name': autoGenerateName,
-  };
+  Map<String, dynamic> toJson() {
+    return {
+      'input': input,
+      'query': query,
+      'response_mode': responseMode,
+      'user': user,
+      if (conversationId != null) 'conversation_id': conversationId,
+      if (files != null && files!.isNotEmpty)
+        'files': files!.map((file) => file.toJson()).toList(),
+      'auto_generate_name': autoGenerateName,
+    };
+  }
 }

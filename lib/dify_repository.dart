@@ -1,35 +1,50 @@
 import 'package:dify_api/entities/chat_message_request.dart';
 import 'package:dify_api/entities/chat_message_response.dart';
+import 'package:dify_api/entities/conversation.dart';
+import 'package:dify_api/entities/file_upload_response.dart';
+import 'package:dify_api/entities/feedback_request.dart';
+import 'package:dify_api/entities/message.dart';
+import 'package:dify_api/entities/conversation_rename_request.dart';
+import 'package:dify_api/entities/paginated_response.dart';
+import 'package:dify_api/entities/success_response.dart';
 import 'package:dio/dio.dart';
 
 abstract class DifyRepository {
   Future<ChatMessageResponse> sendChatMessage(ChatMessageRequest request);
 
-  Future<String> uploadFile(String filePath, String userId);
+  Future<FileUploadResponse> uploadFile(String filePath, String userId);
 
-  Future<void> stopGeneration(String taskId);
+  Future<SuccessResponse> stopGeneration(String messageId, String userId);
 
-  Future<void> submitMessageFeedback(
-      String messageId, Map<String, dynamic> feedback);
+  Future<SuccessResponse> submitMessageFeedback(
+      String messageId, FeedbackRequest feedback);
 
-  Future<List<String>> getSuggestedReplies(String messageId);
+  Future<List<String>> getSuggestedQuestions(String messageId, String userId);
 
-  Future<List<dynamic>> listMessages();
+  Future<PaginatedResponse<Message>> listMessages({
+    required String conversationId,
+    required String userId,
+    int limit = 20,
+    String? lastId,
+  });
 
-  Future<List<dynamic>> listConversations();
+  Future<PaginatedResponse<Conversation>> listConversations({
+    required String userId,
+    String? lastId,
+    int limit = 20,
+    String sortBy = '-updated_at',
+  });
 
-  Future<void> deleteConversation(String conversationId);
+  Future<SuccessResponse> deleteConversation(
+      String conversationId, String userId);
 
-  Future<void> renameConversation(String conversationId,
-      {bool autoGenerate = true});
+  Future<Conversation> renameConversation(
+      String conversationId, ConversationRenameRequest request);
 
-  Future<String> audioToText(String filePath);
+  Future<Map<String, String>> audioToText(String filePath, String userId);
 
-  Future<String> textToAudio(String text);
-
-  Future<Map<String, dynamic>> getInfo();
-
-  Future<Map<String, dynamic>> getParameters();
+  Future<List<int>> textToAudio(String text, String userId,
+      {String? messageId});
 
   Future<Map<String, dynamic>> getMeta();
 }
@@ -56,81 +71,126 @@ class DifyRepositoryImpl implements DifyRepository {
   }
 
   @override
-  Future<String> uploadFile(String filePath, String userId) async {
+  Future<FileUploadResponse> uploadFile(String filePath, String userId) async {
     final formData = FormData.fromMap({
       'file': await MultipartFile.fromFile(filePath),
       'user': userId,
     });
     final response = await _dio.post('/files/upload', data: formData);
-    return response.data['id'];
+    return FileUploadResponse.fromJson(response.data);
   }
 
   @override
-  Future<void> stopGeneration(String taskId) async {
-    await _dio.post('/chat-messages/$taskId/stop');
+  Future<SuccessResponse> stopGeneration(
+      String messageId, String userId) async {
+    final response = await _dio
+        .post('/chat-messages/$messageId/stop', data: {'user': userId});
+    return SuccessResponse.fromJson(response.data);
   }
 
   @override
-  Future<void> submitMessageFeedback(
-      String messageId, Map<String, dynamic> feedback) async {
-    await _dio.post('/messages/$messageId/feedbacks', data: feedback);
+  Future<SuccessResponse> submitMessageFeedback(
+      String messageId, FeedbackRequest feedback) async {
+    final response = await _dio.post('/chat-messages/$messageId/feedbacks',
+        data: feedback.toJson());
+    return SuccessResponse.fromJson(response.data);
   }
 
   @override
-  Future<List<String>> getSuggestedReplies(String messageId) async {
-    final response = await _dio.get('/messages/$messageId/suggested');
-    return List<String>.from(response.data);
+  Future<List<String>> getSuggestedQuestions(
+      String messageId, String userId) async {
+    final response = await _dio.get('/messages/$messageId/suggested-questions',
+        queryParameters: {'user': userId});
+    return List<String>.from(response.data['questions']);
   }
 
   @override
-  Future<List<dynamic>> listMessages() async {
-    final response = await _dio.get('/messages');
-    return response.data;
+  Future<PaginatedResponse<Message>> listMessages({
+    required String conversationId,
+    required String userId,
+    int limit = 20,
+    String? lastId,
+  }) async {
+    final queryParams = {
+      'conversation_id': conversationId,
+      'user': userId,
+      'limit': limit,
+      if (lastId != null) 'last_id': lastId,
+    };
+
+    final response = await _dio.get('/messages', queryParameters: queryParams);
+
+    return PaginatedResponse<Message>.fromJson(
+      response.data,
+      (json) => Message.fromJson(json),
+    );
   }
 
   @override
-  Future<List<dynamic>> listConversations() async {
-    final response = await _dio.get('/conversations');
-    return response.data;
+  Future<PaginatedResponse<Conversation>> listConversations({
+    required String userId,
+    String? lastId,
+    int limit = 20,
+    String sortBy = '-updated_at',
+  }) async {
+    final queryParams = {
+      'user': userId,
+      'limit': limit,
+      'sort_by': sortBy,
+      if (lastId != null) 'last_id': lastId,
+    };
+
+    final response =
+        await _dio.get('/conversations', queryParameters: queryParams);
+
+    return PaginatedResponse<Conversation>.fromJson(
+      response.data,
+      (json) => Conversation.fromJson(json),
+    );
   }
 
   @override
-  Future<void> deleteConversation(String conversationId) async {
-    await _dio.delete('/conversations/$conversationId');
+  Future<SuccessResponse> deleteConversation(
+      String conversationId, String userId) async {
+    final response = await _dio
+        .delete('/conversations/$conversationId', data: {'user': userId});
+    return SuccessResponse.fromJson(response.data);
   }
 
   @override
-  Future<void> renameConversation(String conversationId,
-      {bool autoGenerate = true}) async {
-    await _dio.post('/conversations/$conversationId/name', data: {
-      'auto_generate': autoGenerate,
-    });
+  Future<Conversation> renameConversation(
+      String conversationId, ConversationRenameRequest request) async {
+    final response = await _dio.post('/conversations/$conversationId/name',
+        data: request.toJson());
+    return Conversation.fromJson(response.data);
   }
 
   @override
-  Future<String> audioToText(String filePath) async {
+  Future<Map<String, String>> audioToText(
+      String filePath, String userId) async {
     final formData = FormData.fromMap({
       'file': await MultipartFile.fromFile(filePath),
+      'user': userId,
     });
     final response = await _dio.post('/audio-to-text', data: formData);
-    return response.data['text'];
+    return {'text': response.data['text']};
   }
 
   @override
-  Future<String> textToAudio(String text) async {
-    final response = await _dio.post('/text-to-audio', data: {'text': text});
-    return response.data['audio_url'];
-  }
+  Future<List<int>> textToAudio(String text, String userId,
+      {String? messageId}) async {
+    final data = {
+      'text': text,
+      'user': userId,
+      if (messageId != null) 'message_id': messageId,
+    };
 
-  @override
-  Future<Map<String, dynamic>> getInfo() async {
-    final response = await _dio.get('/info');
-    return response.data;
-  }
+    final response = await _dio.post(
+      '/text-to-audio',
+      data: data,
+      options: Options(responseType: ResponseType.bytes),
+    );
 
-  @override
-  Future<Map<String, dynamic>> getParameters() async {
-    final response = await _dio.get('/parameters');
     return response.data;
   }
 
