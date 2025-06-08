@@ -1,7 +1,7 @@
 name: dify_api
 description: "Dify API integration for Flutter app"
-version: 0.0.1
-homepage:
+version: 0.0.2
+homepage: https://github.com/thanhtunguet/dify_flutter_api
 
 environment:
   sdk: ^3.0.0
@@ -26,6 +26,7 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  generate: true
 
   # To add assets to your package, add an assets section, like this:
   # assets:
