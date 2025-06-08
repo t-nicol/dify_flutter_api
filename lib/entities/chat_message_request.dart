@@ -21,7 +21,7 @@ class ChatMessageRequest {
 
   Map<String, dynamic> toJson() {
     return {
-      'input': input,
+      'inputs': input, // changed from 'input' to 'inputs'
       'query': query,
       'response_mode': responseMode,
       'user': user,
