@@ -8,6 +8,8 @@ import 'package:dify_api/entities/conversation_rename_request.dart';
 import 'package:dify_api/entities/paginated_response.dart';
 import 'package:dify_api/entities/success_response.dart';
 import 'package:dio/dio.dart';
+import 'package:mime/mime.dart';
+import 'package:http_parser/http_parser.dart';
 
 abstract class DifyRepository {
   Future<ChatMessageResponse> sendChatMessage(ChatMessageRequest request);
@@ -72,11 +74,22 @@ class DifyRepositoryImpl implements DifyRepository {
 
   @override
   Future<FileUploadResponse> uploadFile(String filePath, String userId) async {
-    final formData = FormData.fromMap({
-      'file': await MultipartFile.fromFile(filePath),
-      'user': userId,
-    });
-    final response = await _dio.post('/files/upload', data: formData);
+    final String? mimeType = lookupMimeType(filePath);
+    FormData formData;
+    // check mimeType is null or not null
+    if (mimeType != null){
+      // if mimeType is not null, set mimeType to contentType in MultiPartFile.
+      formData = FormData.fromMap({
+        "file": await MultipartFile.fromFile(filePath, contentType: MediaType.parse(mimeType)),
+        "user": userId,
+      });
+    } else {
+      formData = FormData.fromMap({
+        "file": await MultipartFile.fromFile(filePath),
+        "user": userId,
+      });
+    }
+    final response = await _dio.post("/files/upload", data: formData);
     return FileUploadResponse.fromJson(response.data);
   }
 
