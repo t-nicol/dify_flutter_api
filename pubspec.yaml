@@ -1,6 +1,6 @@
 name: dify_api
 description: "Dify API integration for Flutter app"
-version: 0.0.2
+version: 0.0.3
 homepage: https://github.com/thanhtunguet/dify_flutter_api
 
 environment:
@@ -14,8 +14,8 @@ dependencies:
   dio_cookie_manager: ^3.0.0
   cookie_jar: ^4.0.0
   mime: ^2.0.0
-  http_parser: ^4.1.2
-  
+  http_parser: ^4.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
